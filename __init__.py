@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 def executeDiffChecking():
 	def handleFailure(driver, file_name, sheet_index=0):
-		time.sleep(1)
+		print("start handleFailure")
 		screenshot_path = f'./screenshots/{time.time_ns()}-{os.path.splitext(file_name)[0]}-{sheet_index}.png'
 		result = driver.get_screenshot_as_file(screenshot_path)
 
@@ -25,6 +25,7 @@ def executeDiffChecking():
 
 			submitButton.click()
 		except:
+			print("couldn't find the submit button")
 			driver.quit()
 
 		try:
@@ -36,56 +37,44 @@ def executeDiffChecking():
 
 	driver = webdriver.Chrome()
 	driver.get('https://www.diffchecker.com/excel-compare/')
-	time.sleep(1)
-
-	originalInput = driver.find_element(By.XPATH, "//input[@id='fileOriginal-Spreadsheet']")
-	changedInput = driver.find_element(By.XPATH, "//input[@id='fileChanged-Spreadsheet']")
 
 	originalDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/dev')
 	changedDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/prod')
 
-	originalDirectoryContentsUnfiltered = os.listdir(originalDirectoryPath)
-	changedDirectoryContentsUnfiltered = os.listdir(changedDirectoryPath)
+	originalExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(originalDirectoryPath))))  #originalDirectoryContents
+	changedExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(changedDirectoryPath))))  #changedDirectoryContents
 
-	originalDirectoryContents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', originalDirectoryContentsUnfiltered)))
-	changedDirectoryContents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', changedDirectoryContentsUnfiltered)))
-	time.sleep(1)
+	for idx in range(len(originalExcelDocuments)): #each Excel doc
+		inputs = WebDriverWait(driver, 4).until(
+			EC.presence_of_all_elements_located((By.XPATH, "//input[@class='diff-input-header_fileInput__6v6Mq']"))
+		)
 
-	for idx in range(len(originalDirectoryContents)):
-		originalPath = f'{os.fsdecode(originalDirectoryPath)}/{os.fsdecode(originalDirectoryContents[idx])}'
-		changedPath = f'{os.fsdecode(changedDirectoryPath)}/{os.fsdecode(changedDirectoryContents[idx])}'
+		originalPath = f'{os.fsdecode(originalDirectoryPath)}/{os.fsdecode(originalExcelDocuments[idx])}'
+		changedPath = f'{os.fsdecode(changedDirectoryPath)}/{os.fsdecode(changedExcelDocuments[idx])}'
 
-		originalInput.send_keys(originalPath)
-		changedInput.send_keys(changedPath)
+		inputs[0].send_keys(originalPath)
+		inputs[1].send_keys(changedPath)
 
-		time.sleep(2)
+		findDifference(driver, os.fsdecode(changedExcelDocuments[idx]))
 
-		findDifference(driver, os.fsdecode(changedDirectoryContents[idx]))
-
-		time.sleep(1)
-
-		sheetNameSelects = driver.find_elements(By.XPATH, "//select[@class='excel-input_sheetSelect__p7MmN diffResult']")
+		sheetNameSelects = WebDriverWait(driver, 15).until(
+			EC.presence_of_all_elements_located((By.XPATH, "//select[@class='excel-input_sheetSelect__p7MmN diffResult']"))
+		)
 		sheet_idx = 1
 		options = sheetNameSelects[0].find_elements(By.TAG_NAME, "option")
-		while sheet_idx < len(options):
-			time.sleep(1)
+		while sheet_idx < len(options):  #each sheet after the first
 			sheetNameSelects[0].click()
 			options[sheet_idx].click()
 
 			sheetNameSelects[1].click()
 			optionsRight = sheetNameSelects[1].find_elements(By.TAG_NAME, "option")
 			optionsRight[sheet_idx].click()
-			
-			time.sleep(1)
 
-			findDifference(driver, os.fsdecode(changedDirectoryContents[idx]))
+			findDifference(driver, os.fsdecode(changedExcelDocuments[idx]))
 
 			sheet_idx += 1
-			time.sleep(1)
-
 
 		print("iteration complete")
-		time.sleep(1)
 
 	print("script finished executing")
 
