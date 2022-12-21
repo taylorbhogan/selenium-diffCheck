@@ -6,13 +6,19 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 def executeDiffChecking():
-	def handleFailure(driver, file_name, sheet_index, error_string=""):
-		driver.get_screenshot_as_file(f'./screenshots/{time.time_ns()}-{os.path.splitext(file_name)[0]}-sheetidx:{sheet_index}{error_string}.png')
+	lastFailedFileName = "randomUnmatchableString"
+	def _handleFailure(driver, file_name, lastFailedFileName, sheet_index, error_string=""):
 
-	def handleSuccess():
-		print("match")
+		if file_name is not lastFailedFileName:
+			os.mkdir(f'./screenshots/{file_name}')
+			lastFailedFileName = file_name
 
-	def findDifference(driver, file_name, sheet_index=0):
+		driver.get_screenshot_as_file(f'./screenshots/{file_name}/{time.time_ns()}-{os.path.splitext(file_name)[0]}-sheetidx:{sheet_index}{error_string}.png')
+		with open('./failures.txt', 'a') as file:
+			file.write('\n')
+			file.write(f'{file_name}-sheetIdx:{sheet_index}-{error_string}')
+
+	def _findDifference(driver, file_name, lastFailedFileName, sheet_index):
 		submitButton = WebDriverWait(driver, 15).until(
 			EC.presence_of_element_located((By.NAME, "Find difference"))
 		)
@@ -20,9 +26,9 @@ def executeDiffChecking():
 
 		try:
 			driver.switch_to.alert.accept()
-			handleSuccess()
+			print("success")
 		except:
-			handleFailure(driver, file_name, sheet_index)
+			_handleFailure(driver, file_name, lastFailedFileName, sheet_index)
 
 
 
@@ -32,8 +38,8 @@ def executeDiffChecking():
 	originalDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/dev')
 	changedDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/prod')
 
-	originalExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(originalDirectoryPath))))  #originalDirectoryContents
-	changedExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(changedDirectoryPath))))  #changedDirectoryContents
+	originalExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(originalDirectoryPath))))
+	changedExcelDocuments = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', os.listdir(changedDirectoryPath))))
 
 	for idx in range(len(originalExcelDocuments)): #each Excel doc
 		inputs = WebDriverWait(driver, 4).until(
@@ -43,7 +49,7 @@ def executeDiffChecking():
 		inputs[0].send_keys(f'{os.fsdecode(originalDirectoryPath)}/{os.fsdecode(originalExcelDocuments[idx])}')
 		inputs[1].send_keys(f'{os.fsdecode(changedDirectoryPath)}/{os.fsdecode(changedExcelDocuments[idx])}')
 
-		findDifference(driver, os.fsdecode(changedExcelDocuments[idx])) #first (idx 0) sheet only
+		_findDifference(driver, os.fsdecode(changedExcelDocuments[idx]), lastFailedFileName, 0) #first (idx 0) sheet only
 
 		sheetNameSelects = WebDriverWait(driver, 15).until(
 			EC.presence_of_all_elements_located((By.XPATH, "//select[@class='excel-input_sheetSelect__p7MmN diffResult']"))
@@ -59,14 +65,12 @@ def executeDiffChecking():
 				sheetNameSelects[1].click()
 				optionsRight[sheet_idx].click()
 
-				findDifference(driver, os.fsdecode(changedExcelDocuments[idx]), sheet_idx)
-
+				_findDifference(driver, os.fsdecode(changedExcelDocuments[idx]), lastFailedFileName, sheet_idx)
 				sheet_idx += 1
-
-			print("iteration complete")
 		else:
-			handleFailure(driver, os.fsdecode(changedExcelDocuments[idx]), sheet_idx, "NUM SHEETS MISMATCH")
+			_handleFailure(driver, os.fsdecode(changedExcelDocuments[idx]), lastFailedFileName, sheet_idx, "NUM SHEETS MISMATCH")
 
+		print("workbook complete")
 	print("script finished executing")
 
 executeDiffChecking()
