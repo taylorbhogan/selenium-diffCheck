@@ -4,55 +4,63 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 
-def handleFailure(driver, file_name, sheet_index=0):
-	time.sleep(1)
-	screenshot_path = f'./screenshots/{time.time_ns()}-{os.path.splitext(file_name)[0]}-{sheet_index}.png'
-	result = driver.get_screenshot_as_file(screenshot_path)
+def executeDiffChecking():
+	def handleFailure(driver, file_name, sheet_index=0):
+		time.sleep(1)
+		screenshot_path = f'./screenshots/{time.time_ns()}-{os.path.splitext(file_name)[0]}-{sheet_index}.png'
+		result = driver.get_screenshot_as_file(screenshot_path)
 
-def handleSuccess():
-	print("match")
+	def handleSuccess():
+		print("match")
 
-def findDifference(driver, file_name):
-	submit_button = driver.find_element(By.NAME, "Find difference")
-	submit_button.click()
+	def findDifference(driver, file_name):
+		try:
+			submitButton = WebDriverWait(driver, 15).until(
+				EC.presence_of_element_located((By.NAME, "Find difference"))
+			)
 
-	try:
-		driver.switch_to.alert.accept()
-		handleSuccess()
-	except:
-		handleFailure(driver, file_name)
+			submitButton.click()
+		except:
+			driver.quit()
+
+		try:
+			driver.switch_to.alert.accept()
+			handleSuccess()
+		except:
+			handleFailure(driver, file_name)
 
 
-def run():
 	driver = webdriver.Chrome()
 	driver.get('https://www.diffchecker.com/excel-compare/')
 	time.sleep(1)
 
-	original_input = driver.find_element(By.XPATH, "//input[@id='fileOriginal-Spreadsheet']")
-	changed_input = driver.find_element(By.XPATH, "//input[@id='fileChanged-Spreadsheet']")
+	originalInput = driver.find_element(By.XPATH, "//input[@id='fileOriginal-Spreadsheet']")
+	changedInput = driver.find_element(By.XPATH, "//input[@id='fileChanged-Spreadsheet']")
 
-	original_directory_path = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/dev')
-	changed_directory_path = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/prod')
+	originalDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/dev')
+	changedDirectoryPath = os.fsencode('/Users/chefables_imac/Desktop/automation/test_files/prod')
 
-	original_directory_contents_unfiltered = os.listdir(original_directory_path)
-	changed_directory_contents_unfiltered = os.listdir(changed_directory_path)
+	originalDirectoryContentsUnfiltered = os.listdir(originalDirectoryPath)
+	changedDirectoryContentsUnfiltered = os.listdir(changedDirectoryPath)
 
-	original_directory_contents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', original_directory_contents_unfiltered)))
-	changed_directory_contents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', changed_directory_contents_unfiltered)))
+	originalDirectoryContents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', originalDirectoryContentsUnfiltered)))
+	changedDirectoryContents = sorted(list(filter(lambda val: os.fsdecode(os.path.splitext(val)[1]) == '.xlsx', changedDirectoryContentsUnfiltered)))
 	time.sleep(1)
 
-	for idx in range(len(original_directory_contents)):
-		original_path = f'{os.fsdecode(original_directory_path)}/{os.fsdecode(original_directory_contents[idx])}'
-		changed_path = f'{os.fsdecode(changed_directory_path)}/{os.fsdecode(changed_directory_contents[idx])}'
+	for idx in range(len(originalDirectoryContents)):
+		originalPath = f'{os.fsdecode(originalDirectoryPath)}/{os.fsdecode(originalDirectoryContents[idx])}'
+		changedPath = f'{os.fsdecode(changedDirectoryPath)}/{os.fsdecode(changedDirectoryContents[idx])}'
 
-		original_input.send_keys(original_path)
-		changed_input.send_keys(changed_path)
+		originalInput.send_keys(originalPath)
+		changedInput.send_keys(changedPath)
 
-		time.sleep(1)
+		time.sleep(2)
 
-		findDifference(driver, os.fsdecode(changed_directory_contents[idx]))
+		findDifference(driver, os.fsdecode(changedDirectoryContents[idx]))
 
 		time.sleep(1)
 
@@ -70,7 +78,7 @@ def run():
 			
 			time.sleep(1)
 
-			findDifference(driver, os.fsdecode(changed_directory_contents[idx]))
+			findDifference(driver, os.fsdecode(changedDirectoryContents[idx]))
 
 			sheet_idx += 1
 			time.sleep(1)
@@ -81,4 +89,4 @@ def run():
 
 	print("script finished executing")
 
-run()
+executeDiffChecking()
